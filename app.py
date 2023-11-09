@@ -86,7 +86,6 @@ with col1:
         content = r[0].page_content
         metadata = r[0].metadata["book"]
         chapter = r[0].metadata["chapter"]
-        #testament = r[0].metadata["testament"]
         score = r[1]
         with st.expander(f"**{metadata}** {chapter}", expanded=True):
             st.write(f"{content}")
