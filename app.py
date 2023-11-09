@@ -23,7 +23,7 @@ def setup():
         query_instruction="Represent the religious Bible verse text for semantic search:",
     )
     db = Chroma(
-        persist_directory="./data/db",
+        persist_directory="./data/db2_engwebp_esv",
         embedding_function=embeddings,
     )
     try:
