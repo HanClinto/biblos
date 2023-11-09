@@ -20,15 +20,20 @@ st.set_page_config(
 def setup():
     embeddings = HuggingFaceInstructEmbeddings(
         model_name="hkunlp/instructor-large",
-        query_instruction="Represent the Religious Bible verse text for semantic search:",
+        query_instruction="Represent the religious Bible verse text for semantic search:",
     )
     db = Chroma(
         persist_directory="./data/db",
         embedding_function=embeddings,
     )
-    llm = ChatAnthropic(max_tokens=100000)
-    return db, llm
+    try:
+        llm = ChatAnthropic(max_tokens=100000)
+    except:
+        # No API token, found, so don't enable LLM support.
+        print(f'No API token found, so LLM support is disabled.')
+        llm = None
 
+    return db, llm
 
 db, llm = setup()
 
@@ -43,10 +48,35 @@ search_query = st.text_input(
     default_query,
 )
 
+# Add checkboxes for New Testament and Old Testament underneath the search bar in an expandable section
+with st.expander("Search Options"):
+    with st.header("Testament"):
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            # HACK: If we put a space between the words instead of a tab, then the app crashes.
+            ot = st.checkbox("Old\tTestament", value=True)
+        with col2:
+            nt = st.checkbox("New\tTestament", value=True)
+    # Add a slider for the number of results
+    with st.header("Number of Results"):
+        num_results = st.slider(
+            "Number of results:", min_value=1, max_value=10, value=4, step=1
+        )
+
+# Build a search filter for the testaments
+if ot != nt:
+    if ot:
+        testament_filter = {"testament": "OT"} #{"testament": {"$eq": "OT"}}
+    else:
+        testament_filter = {"testament": "NT"} #{"testament": {"$eq": "NT"} }
+else:
+    testament_filter = None
+
 search_results = db.similarity_search_with_relevance_scores(
     search_query,
-    k=4,
+    k=num_results,
     score_function="cosine",
+    filter=testament_filter,
 )
 
 col1, col2 = st.columns([1, 1])
@@ -56,28 +86,33 @@ with col1:
         content = r[0].page_content
         metadata = r[0].metadata["book"]
         chapter = r[0].metadata["chapter"]
+        #testament = r[0].metadata["testament"]
         score = r[1]
         with st.expander(f"**{metadata}** {chapter}", expanded=True):
             st.write(f"{content}")
             st.write(f"**Similarity Score**: {score}")
 with col2:
     if st.button("Summarize"):
-        with st.spinner("Summarizing text..."):
-            results = []
-            for r in search_results:
-                content = r[0].page_content
-                metadata = r[0].metadata["book"]
-                chapter = r[0].metadata["chapter"]
-                results.append(f"Source: {metadata}\nContent: {content}")
+        if llm is None:
+            st.error("No API token found, so LLM support is disabled.")
+            st.stop()
+        else:
+            with st.spinner("Summarizing text..."):
+                results = []
+                for r in search_results:
+                    content = r[0].page_content
+                    metadata = r[0].metadata["book"]
+                    chapter = r[0].metadata["chapter"]
+                    results.append(f"Source: {metadata}\nContent: {content}")
 
-            if results == "":
-                st.error("No results found")
-                st.stop()
+                if results == "":
+                    st.error("No results found")
+                    st.stop()
 
-            all_results = "\n".join(results)
-            llm_query = f"{prompt} {search_query}:\n{all_results}"
-            llm_response = llm.predict(llm_query)
-            st.success(llm_response)
+                all_results = "\n".join(results)
+                llm_query = f"{prompt} {search_query}:\n{all_results}"
+                llm_response = llm.predict(llm_query)
+                st.success(llm_response)
 
 streamlit_analytics.stop_tracking(
     save_to_json="./data/analytics.json", unsafe_password="x"
