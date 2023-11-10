@@ -17,7 +17,7 @@ from langchain.embeddings import HuggingFaceInstructEmbeddings
 
 input_file = "./engwebp_vpl.xml"
 model_name = "hkunlp/instructor-large"
-query_instruction = "Represent the religious Bible verse text for semantic search:"
+query_instruction = "Analyze and summarize the key theological doctrines, philosophical ideas, historical events, narrative characters, and moral concepts illustrated in this Bible verse: "
 output_dir = "./db"
 
 # Parse the command-line arguments

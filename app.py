@@ -22,13 +22,16 @@ def setup():
         model_name="hkunlp/instructor-large",
         # NOTE: Not changing the capitalization in this query instruction until the database is regenerated.  Not sure if it will make a difference or not, but better safe than sorry. Once the data is regenerated, then update this line to ensure that the prompt text matches again.
         #query_instruction="Represent the religious Bible verse text for semantic search:",
-        query_instruction="Represent the Religious Bible verse text for semantic search:",
+        query_instruction="Analyze and summarize the key theological doctrines, philosophical ideas, historical events, narrative characters, and moral concepts illustrated in this Bible verse: ",
     )
     db = Chroma(
         persist_directory="./data/db",
         embedding_function=embeddings,
     )
-    llm = ChatAnthropic(max_tokens=100000)
+    try:
+        llm = ChatAnthropic(max_tokens=100000)
+    except:
+        llm = None
     return db, llm
 
 
@@ -64,22 +67,26 @@ with col1:
             st.write(f"**Similarity Score**: {score}")
 with col2:
     if st.button("Summarize"):
-        with st.spinner("Summarizing text..."):
-            results = []
-            for r in search_results:
-                content = r[0].page_content
-                metadata = r[0].metadata["book"]
-                chapter = r[0].metadata["chapter"]
-                results.append(f"Source: {metadata}\nContent: {content}")
+        if llm is None:
+            st.error("Unable to load LLM model")
+            st.stop()
+        else:
+            with st.spinner("Summarizing text..."):
+                results = []
+                for r in search_results:
+                    content = r[0].page_content
+                    metadata = r[0].metadata["book"]
+                    chapter = r[0].metadata["chapter"]
+                    results.append(f"Source: {metadata}\nContent: {content}")
 
-            if results == "":
-                st.error("No results found")
-                st.stop()
+                if results == "":
+                    st.error("No results found")
+                    st.stop()
 
-            all_results = "\n".join(results)
-            llm_query = f"{prompt} {search_query}:\n{all_results}"
-            llm_response = llm.predict(llm_query)
-            st.success(llm_response)
+                all_results = "\n".join(results)
+                llm_query = f"{prompt} {search_query}:\n{all_results}"
+                llm_response = llm.predict(llm_query)
+                st.success(llm_response)
 
 streamlit_analytics.stop_tracking(
     save_to_json="./data/analytics.json", unsafe_password="x"
